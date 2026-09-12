@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Kanal - @bestvaxi</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #eef2f5; margin: 0; padding: 0; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: #fff; min-height: 100vh; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        
+        #login-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; padding: 20px; text-align: center; }
+        #login-screen input { padding: 12px; font-size: 16px; width: 80%; max-width: 300px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; }
+        #login-screen button { padding: 12px 20px; font-size: 16px; background: #0088cc; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        
+        #channel-screen { display: none; flex-direction: column; height: 100vh; }
+        header { background: #0088cc; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; }
+        
+        #posts-container { flex: 1; overflow-y: auto; padding: 15px; background: #f0f2f5; display: flex; flex-direction: column; gap: 15px; }
+        .post { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .post-author { font-weight: bold; color: #0088cc; margin-bottom: 5px; }
+        .post-text { word-break: break-word; margin-bottom: 10px; white-space: pre-wrap; }
+        .post img { max-width: 100%; border-radius: 6px; margin-bottom: 10px; display: block; }
+        .post-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: gray; border-top: 1px solid #eee; padding-top: 8px; }
+        
+        .actions-bar { display: flex; gap: 10px; }
+        .btn-action { background: #e4e6eb; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; color: #333; text-decoration: none; display: inline-block; text-align: center; }
+        .btn-action:hover { background: #d8dadf; }
+        .btn-delete { background: #ffcccc; color: #cc0000; }
+
+        #admin-panel { background: #fff; padding: 15px; border-top: 1px solid #ddd; display: none; flex-direction: column; gap: 10px; }
+        #admin-panel textarea { padding: 10px; border: 1px solid #ccc; border-radius: 6px; resize: none; height: 60px; font-family: inherit; }
+        #admin-panel button { background: #28a745; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="login-screen">
+            <h2>Web Kanala Giriş</h2>
+            <p>Ulanyjy adyny giriziň (Admin üçin: @bestvaxi)</p>
+            <input type="text" id="username-input" placeholder="Meselem: @bestvaxi">
+            <button onclick="login()">Girmek</button>
+        </div>
+
+        <div id="channel-screen">
+            <header>📢 Resmi Web Kanal</header>
+            <div id="posts-container"></div>
+
+            <div id="admin-panel">
+                <textarea id="post-text" placeholder="Kanala habar ýazyň..."></textarea>
+                <input type="file" id="post-file" accept="image/*">
+                <button onclick="sendPost()">Kanala ýaýrat</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = '';
+        let posts = JSON.parse(localStorage.getItem('channel_posts')) || [];
+
+        function login() {
+            const val = document.getElementById('username-input').value.trim();
+            if (!val) {
+                alert('Ulanyjy adyny giriziň!');
+                return;
+            }
+            currentUser = val;
+            
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('channel-screen').style.display = 'flex';
+
+            if (currentUser === '@bestvaxi') {
+                document.getElementById('admin-panel').style.display = 'flex';
+            }
+
+            renderPosts();
+        }
+
+        function sendPost() {
+            if (currentUser !== '@bestvaxi') return;
+
+            const text = document.getElementById('post-text').value;
+            const fileInput = document.getElementById('post-file');
+            
+            if (!text.trim() && (!fileInput.files || !fileInput.files[0])) return;
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    saveNewPost(text, e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                saveNewPost(text, null);
+            }
+        }
+
+        function saveNewPost(text, media) {
+            const newPost = {
+                id: Date.now(),
+                username: currentUser,
+                text: text,
+                media: media,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            posts.unshift(newPost);
+            localStorage.setItem('channel_posts', JSON.stringify(posts));
+            clearForm();
+            renderPosts();
+        }
+
+        function clearForm() {
+            document.getElementById('post-text').value = '';
+            document.getElementById('post-file').value = '';
+        }
+
+        function renderPosts() {
+            const container = document.getElementById('posts-container');
+            container.innerHTML = '';
+
+            if (posts.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:gray;">Häzirlikçe ýazgy ýok.</p>';
+                return;
+            }
+
+            posts.forEach(post => {
+                const div = document.createElement('div');
+                div.className = 'post';
+
+                let mediaHTML = '';
+                if (post.media) {
+                    mediaHTML = `
+                        <img src="${post.media}" alt="Surat">
+                        <a href="${post.media}" download="surat_${post.id}.png" class="btn-action" style="margin-bottom: 10px; width: 100%;">📥 Suraty Skachat Et</a>
+                    `;
+                }
+
+                div.innerHTML = `
+                    <div class="post-author">${post.username}</div>
+                    <div class="post-text" id="text-${post.id}">${escapeHtml(post.text)}</div>
+                    ${mediaHTML}
+                    <div class="post-footer">
+                        <span>${post.time}</span>
+                        <div class="actions-bar">
+                            <button class="btn-action" onclick="copyText('${post.id}')">📋 Kopiýala</button>
+                            ${currentUser === '@bestvaxi' ? `<button class="btn-action btn-delete" onclick="deletePost(${post.id})">🗑 Poz</button>` : ''}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function copyText(id) {
+            const textElement = document.getElementById(`text-${id}`);
+            navigator.clipboard.writeText(textElement.innerText).then(() => {
+                alert('Ýazgy göçürildi!');
+            }).catch(err => {
+                alert('Göçürip bolmady');
+            });
+        }
+
+        function deletePost(id) {
+            if (currentUser === '@bestvaxi' && confirm('Bu ýazgyny pozmak isleýärsiňizmi?')) {
+                posts = posts.filter(p => p.id !== id);
+                localStorage.setItem('channel_posts', JSON.stringify(posts));
+                renderPosts();
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
